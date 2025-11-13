@@ -1,0 +1,4 @@
+.venv/*
+build/*
+.vscode/*
+MU_p1.egg-info/*

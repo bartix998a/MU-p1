@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "twoj_projekt"
+version = "0.1.0"
+description = "Opis projektu"
+readme = "README.md"
+requires-python = ">=3.9"
+
+# TU podajesz zależności, i to one będą instalowane przy pip install .
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib"
+]
+
+# Jeśli potrzebujesz extras:
+[project.optional-dependencies]
+dev = ["pytest", "black"]

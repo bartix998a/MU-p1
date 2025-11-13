@@ -52,7 +52,7 @@ def getLineIn3D(vertex=(0,0,0), carbonLength=5.0, alphaLength=40.0):
     delta = np.linspace(-carbonLength,alphaLength,nPoints)
     delta = np.expand_dims(delta, axis=1)
     line = vertex + delta*tangent
-    return line
+    return line, tangent
 ##############################################
 ##############################################
 def smearLine(line, sigma=1.0):
@@ -150,29 +150,7 @@ def getBraggDensity(line, track_Bragg, sigma=2.0):
 ##############################################
 ##############################################
 
-vertex = np.array((0,0,0))
-carbonLength = 15.0
-alphaLength = 60.0
-lineXYZ = getLineIn3D(vertex, carbonLength, alphaLength)
-
-"""### Stage 1:
-## Input represents a smeared line.
-The edges of the line are fuzzy.
-"""
-
-sigma = 2.0
-lineXYZ = smearLine(lineXYZ, sigma=sigma)
-
-"""### Step 3:
-## Input represents a smeared line with non uniform pixel values along the line
-The middle POI (`vertex`) is defined as the stitching point between two, **smeared** distributions.
-"""
-
-carbon_Bragg_smeared, alpha_Bragg_smeared, track_Bragg = getBraggForTrack(lineXYZ, vertex, sigma=sigma, windowSize=50)
-carbon_Bragg, alpha_Bragg, _ = getBraggForTrack(lineXYZ, vertex, sigma=0.02, windowSize=50)
-density = getBraggDensity(lineXYZ, track_Bragg, sigma=sigma)
-
-def getTestData(step :taskType):
+def getTestData(step :taskType, sigma = 2.0):
     vertex = np.array((0,0,0))
     carbonLength = 15.0
     alphaLength = 60.0
@@ -197,3 +175,4 @@ def getTestData(step :taskType):
         return clear_histogram, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)]
     else:
         return clear_histogram, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)], lineXYZ[0], lineXYZ[-1]
+    

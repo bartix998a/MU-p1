@@ -12,16 +12,10 @@ Original file is located at
 # @title
 import numpy as np
 from scipy import signal
-from enum import Enum
+from typing import Literal
 import random
 
 import os
-
-class taskType(str, Enum):
-    NOISE = 'noise',
-    LINE_FIT = 'line',
-    EDGES_FIT = 'edges',
-    MIDDLE_POINT_FIT = 'middle'
 
 # @title
 projectionPhis = {
@@ -150,7 +144,7 @@ def getBraggDensity(line, track_Bragg, sigma=2.0):
 ##############################################
 ##############################################
 
-def getTestData(step :taskType, sigma = 2.0):
+def getTestData(step :Literal['noise', 'fit', 'edges', 'middle'], sigma :float = 2.0):
     vertex = np.array((0,0,0))
     carbonLength = 15.0
     alphaLength = 60.0
@@ -176,3 +170,4 @@ def getTestData(step :taskType, sigma = 2.0):
     else:
         return clear_histogram, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)], lineXYZ[0], lineXYZ[-1]
     
+print(getTestData('noise'))

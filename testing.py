@@ -158,16 +158,14 @@ def getTestData(step :Literal['noise', 'fit', 'edges', 'middle'], sigma :float =
     lineUVWT_noise = np.concatenate((lineUVWT, noiseUVWT), axis=0)
     density_noise = np.concatenate((density, noiseVal[:,0]), axis=0)
     
-    clear_histogram = [np.histogram2d(lineUVWT[:,i], lineUVWT[:,3], bins=(512,256), range=[[0,512],[0,256]], weights=density) for i in range(3)]
-    noise_histogram = [np.histogram2d(lineUVWT_noise[:,i], lineUVWT[:,3], bins=(512,256), range=[[0,512],[0,256]], weights=density_noise) for i in range(3)]
+    clear_histograms = [np.histogram2d(lineUVWT[:,i], lineUVWT[:,3], bins=(512,256), range=[[0,512],[0,256]], weights=density) for i in range(3)]
+    noise_histograms = [np.histogram2d(lineUVWT_noise[:,i], lineUVWT_noise[:,3], bins=(512,256), range=[[0,512],[0,256]], weights=density_noise) for i in range(3)]
     
     if step == 'noise':
-        return noise_histogram
+        return noise_histograms
     elif step == 'fit':
-        return clear_histogram
+        return clear_histograms
     elif step == 'edges':
-        return clear_histogram, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)]
+        return clear_histograms, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)]
     else:
-        return clear_histogram, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)], lineXYZ[0], lineXYZ[-1]
-    
-print(getTestData('noise'))
+        return clear_histograms, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)], lineXYZ[0], lineXYZ[-1]

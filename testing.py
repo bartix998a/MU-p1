@@ -14,6 +14,7 @@ import numpy as np
 from scipy import signal
 from typing import Literal
 import random
+import matplotlib.pyplot as plt
 
 import os
 
@@ -149,6 +150,7 @@ def getTestData(step :Literal['noise', 'fit', 'edges', 'middle'], sigma :float =
     carbonLength = 15.0
     alphaLength = 60.0
     lineXYZ, tangent = getLineIn3D(vertex, carbonLength, alphaLength)
+    lineXYZ = smearLine(lineXYZ)
     lineUVWT = getXYZtoUVWT(lineXYZ)
     
     carbon_Bragg_smeared, alpha_Bragg_smeared, track_Bragg = getBraggForTrack(lineXYZ, vertex, sigma=sigma, windowSize=50)

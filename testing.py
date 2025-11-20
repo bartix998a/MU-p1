@@ -102,7 +102,7 @@ def getBraggForTrack(trackData, vertex, sigma=2.0, windowSize=50):
     indices = np.argsort(carbon_Bragg_smeared[:,0])
     carbon_Bragg_smeared = carbon_Bragg_smeared[indices]
 
-    alphaTrackLength = np.sqrt(np.sum((trackData[-2:-1,:] - vertex)**2, axis=1))[0]
+    alphaTrackLength = np.sqrt(np.sum(([trackData[-1,:]] - vertex)**2, axis=1))[0]
     alpha_Bragg_start =  int(alpha_Bragg[-1,0]  - alphaTrackLength)  # Alpha Bragg is sampled every 1 mm
     alpha_Bragg_smeared = getSmearedBragg(alpha_Bragg[alpha_Bragg_start:], windowSize, sigma, lengthScale=1.0)
 
@@ -160,8 +160,8 @@ def getTestData(step :Literal['noise', 'fit', 'edges', 'middle'], sigma :float =
     lineUVWT_noise = np.concatenate((lineUVWT, noiseUVWT), axis=0)
     density_noise = np.concatenate((density, noiseVal[:,0]), axis=0)
     
-    clear_histograms = [np.histogram2d(lineUVWT[:,i], lineUVWT[:,3], bins=(512,256), range=[[0,512],[0,256]], weights=density) for i in range(3)]
-    noise_histograms = [np.histogram2d(lineUVWT_noise[:,i], lineUVWT_noise[:,3], bins=(512,256), range=[[0,512],[0,256]], weights=density_noise) for i in range(3)]
+    clear_histograms = [np.histogram2d(lineUVWT[:,3], lineUVWT[:,i], bins=(512,256), range=[[0,512],[0,256]], weights=density) for i in range(3)]
+    noise_histograms = [np.histogram2d(lineUVWT_noise[:,3], lineUVWT_noise[:,i], bins=(512,256), range=[[0,512],[0,256]], weights=density_noise) for i in range(3)]
     
     if step == 'noise':
         return noise_histograms

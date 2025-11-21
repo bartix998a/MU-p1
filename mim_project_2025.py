@@ -257,7 +257,6 @@ def getNoiseUVWT(mu=0, sigma=20):
 ##############################################
 ##############################################
 def makePlotSet(lineXYZ, vertex, sigma=0, density=None, zoom=False, noise=False):
-
     ax = plot3DLine(lineXYZ)
     ax = plot3DPOIs(vertex, lineXYZ, ax)
 
@@ -279,6 +278,27 @@ def makePlotSet(lineXYZ, vertex, sigma=0, density=None, zoom=False, noise=False)
     plotPOI(startUVWT, axes, color='r')
     endUVWT = getXYZtoUVWT( np.expand_dims(lineXYZ[-1,:], axis=0) )
     plotPOI(endUVWT, axes, color='r')
+
+
+"""#my adition:
+
+# 1. Run your simulation
+makePlotSet(lineXYZ, vertex, density=density, zoom=True, noise=True)
+
+# 2. NOW load the projections for denoising
+fig, axes = plotUVWT(getXYZtoUVWT(lineXYZ), density=density, zoom=True)
+
+image_UT = axes[0].images[0].get_array()
+image_VW = axes[1].images[0].get_array()
+image_WT = axes[2].images[0].get_array()
+
+from noise_removal import compare_methods
+
+results_UT = compare_methods(image_UT)
+results_VW = compare_methods(image_VW)
+results_WT = compare_methods(image_WT)
+"""
+
 ##########################################################################
 ##########################################################################
 def makeBraggPlots(carbon_Bragg_smeared, alpha_Bragg_smeared, track_Bragg):

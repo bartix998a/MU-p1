@@ -1,93 +1,125 @@
 import numpy as np
-from scipy.ndimage import gaussian_filter, median_filter, binary_opening, binary_closing
-from scipy.fft import fft2, ifft2, fftshift, ifftshift
+import cv2
 import pywt
-
-# ------------------------------
-# 1. Threshold-based filtering
-
-def denoise_threshold(image, threshold):
-    """Simple threshold: values below threshold → zero."""
-    return np.where(image > threshold, image, 0)
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+from scipy.ndimage import gaussian_filter, median_filter
+from scipy import ndimage
 
 
-# ------------------------------
-# 2. Gaussian smoothing
+# -------------------------------------------
+# Utility metrics
+# -------------------------------------------
+def compute_metrics(original, denoised):
+    psnr = peak_signal_noise_ratio(original, denoised, data_range=original.max() - original.min())
+    ssim = structural_similarity(original, denoised)
+    snr = 10 * np.log10(np.sum(original**2) / np.sum((original - denoised)**2 + 1e-9))
+    return {"PSNR": psnr, "SSIM": ssim, "SNR": snr}
 
 
-def denoise_gaussian(image, sigma=1.0):
-    """Low-pass smoothing that removes high-frequency noise."""
+# -------------------------------------------
+# Denoising algorithms
+# -------------------------------------------
+
+def threshold_filter(image, threshold):
+    """Simple amplitude threshold"""
+    out = np.copy(image)
+    out[out < threshold] = 0
+    return out
+
+
+def gaussian_smoothing(image, sigma=1.0):
     return gaussian_filter(image, sigma=sigma)
 
 
-# ------------------------------
-# 3. Median filter
-
-def denoise_median(image, size=3):
-    """Replaces each pixel by the median of neighbors."""
+def median_smoothing(image, size=3):
     return median_filter(image, size=size)
 
 
-# ------------------------------
-# 4. Morphological filtering
-
-def denoise_morphological(image, structure_size=3):
-    """Opening removes small bright noise; closing fills gaps."""
-    structure = np.ones((structure_size, structure_size))
-    opened = binary_opening(image > 0, structure=structure)
-    closed = binary_closing(opened, structure=structure)
-    return closed.astype(image.dtype) * image.max()
+def morphological_open_close(image, kernel_size=3):
+    """opening removes small bright specks; closing fills holes"""
+    kernel = np.ones((kernel_size, kernel_size), np.uint8)
+    opened = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+    closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+    return closed
 
 
-# ------------------------------
-# 5. FFT low-pass filtering
-
-def denoise_fft_lowpass(image, cutoff=0.1):
-    """Remove high-frequency (fast) noise in the Fourier domain."""
-    F = fftshift(fft2(image))
-    H = np.zeros_like(F)
-    
-    rows, cols = image.shape
-    center_r, center_c = rows//2, cols//2
-    radius = cutoff * min(rows, cols)
-
-    for r in range(rows):
-        for c in range(cols):
-            if np.sqrt((r - center_r)**2 + (c - center_c)**2) < radius:
-                H[r, c] = 1
-
-    F_filtered = F * H
-    return np.abs(ifft2(ifftshift(F_filtered)))
-
-
-# ------------------------------
-# 6. Wavelet denoising
-
-def denoise_wavelet(image, wavelet="db2", level=2, threshold=0.1):
-    """Threshold small wavelet coefficients → noise removed."""
+def wavelet_denoise(image, wavelet="db1", level=2, threshold_factor=0.04):
     coeffs = pywt.wavedec2(image, wavelet, level=level)
-    coeffs_filtered = []
+    cA, detail = coeffs[0], coeffs[1:]
 
-    for c in coeffs:
-        if isinstance(c, tuple):
-            c_filtered = tuple(pywt.threshold(x, threshold*np.max(x)) for x in c)
-            coeffs_filtered.append(c_filtered)
-        else:
-            coeffs_filtered.append(c)
+    # threshold small wavelet coefficients
+    new_detail = []
+    for (cH, cV, cD) in detail:
+        t = threshold_factor * np.max(cH)
+        new_detail.append((
+            pywt.threshold(cH, t),
+            pywt.threshold(cV, t),
+            pywt.threshold(cD, t)
+        ))
 
-    return pywt.waverec2(coeffs_filtered, wavelet)
+    return pywt.waverec2([cA] + new_detail, wavelet)
 
 
-# ------------------------------
-# Combine all methods and return results
+def fft_denoise(image, cutoff=0.1):
+    """Low-pass filter in frequency domain"""
+    f = np.fft.fftshift(np.fft.fft2(image))
 
-def compare_all_methods(image):
-    """Applies all denoising methods and returns a dictionary of results."""
-    return {
-        "threshold": denoise_threshold(image, threshold=np.mean(image)),
-        "gaussian": denoise_gaussian(image, sigma=1.0),
-        "median": denoise_median(image, size=3),
-        "morphological": denoise_morphological(image, structure_size=3),
-        "fft_lowpass": denoise_fft_lowpass(image, cutoff=0.1),
-        "wavelet": denoise_wavelet(image, level=2, threshold=0.1)
-    }
+    h, w = image.shape
+    y, x = np.ogrid[-h//2:h//2, -w//2:w//2]
+    radius = np.sqrt(x*x + y*y)
+    mask = radius < cutoff * min(h, w)
+
+    f_filtered = f * mask
+    img_back = np.real(np.fft.ifft2(np.fft.ifftshift(f_filtered)))
+    return img_back
+
+
+# -------------------------------------------
+# Dispatch function
+# -------------------------------------------
+def denoise(image, method="gaussian", **params):
+    if method == "threshold":
+        return threshold_filter(image, params.get("threshold", 10))
+
+    elif method == "gaussian":
+        return gaussian_smoothing(image, sigma=params.get("sigma", 1.0))
+
+    elif method == "median":
+        return median_smoothing(image, size=params.get("size", 3))
+
+    elif method == "morphological":
+        return morphological_open_close(image, kernel_size=params.get("kernel_size", 3))
+
+    elif method == "wavelet":
+        return wavelet_denoise(
+            image,
+            wavelet=params.get("wavelet", "db2"),
+            level=params.get("level", 2),
+            threshold_factor=params.get("threshold_factor", 0.04)
+        )
+
+    elif method == "fft":
+        return fft_denoise(image, cutoff=params.get("cutoff", 0.08))
+
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
+
+# -------------------------------------------
+# Method comparison utility
+# -------------------------------------------
+def compare_methods(image):
+    methods = ["threshold", "gaussian", "median", "morphological", "wavelet", "fft"]
+    results = {}
+
+    for m in methods:
+        den = denoise(image, method=m)
+        metrics = compute_metrics(image, den)
+        results[m] = {
+            "image": den,
+            "metrics": metrics
+        }
+        print(f"[{m}]  PSNR={metrics['PSNR']:.3f}  SSIM={metrics['SSIM']:.3f}  SNR={metrics['SNR']:.3f}")
+
+    return results
+

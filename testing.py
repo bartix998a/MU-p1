@@ -162,10 +162,10 @@ def getTestData(step :Literal['noise', 'fit', 'edges', 'middle'], sigma :float =
     
     clear_histograms = np.stack(
         [np.histogram2d(lineUVWT[:,3], lineUVWT[:,i], bins=(512,256), range=[[0,512],[0,256]], weights=density)[0] for i in range(3)]
-        , axis = 2)
+        , axis = 0)
     noise_histograms = np.stack(
         [np.histogram2d(lineUVWT_noise[:,3], lineUVWT_noise[:,i], bins=(512,256), range=[[0,512],[0,256]], weights=density_noise)[0] for i in range(3)]
-        , axis = 2)
+        , axis = 0)
     
     if step == 'noise':
         return noise_histograms

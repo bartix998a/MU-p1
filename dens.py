@@ -12,11 +12,11 @@ def vPerp(v:np.ndarray) -> np.ndarray:
 
 # gets projections of the points that lie closer than epsilon to the line
 def getProjections(points, vals, p0, d, epsilon):
-    v = points - p0
-
-    proj = np.dot(v, d)[:, None] * d
-
-    return proj[np.linalg.norm(v - proj) < epsilon], vals[np.linalg.norm(v - proj) < epsilon]
+    v = points.astype(np.float32) - p0
+    
+    proj = (np.dot(v, d)[:, None] * d) + p0
+    
+    return proj[np.linalg.norm(v - (proj - p0), axis=1) < epsilon], vals[np.linalg.norm(v - (proj - p0), axis=1) < epsilon]
 
 # gets the distribution on a line from a single image through the projection method
 def getDistributionProjections(points, epsilon, histogram):
@@ -32,9 +32,10 @@ def getDistributionProjections(points, epsilon, histogram):
     
     distribution = []
     
-    for point in points():
-        histogram_coord_p, vals_p = getProjections(histogram_coord, vals, point, direction_perp, epsilon)
-        distribution += [np.average(vals_p, weights = 1 / (np.linalg.norm(histogram_coord_p - point) + 1))]
+    for point in points:
+        histogram_coord_p, vals_p = getProjections(histogram_coord[:,::-1], vals, point, direction_perp, epsilon)
+        
+        distribution += [np.average(vals_p, weights = 1 / (np.linalg.norm(histogram_coord_p - point, axis=1) + 1), axis=0) if vals_p.shape[0] != 0 else 0.0]
     
     return np.array(distribution)
 
@@ -57,7 +58,7 @@ def estimateMiddle(images, tanget, vertex, start, end):
     measuring_points_uvwt = getXYZtoUVWT(measuring_points)
     
     distribution = np.average(
-        np.array([getDistributionProjections(measuring_points_uvwt[[i,3],:], 0.5, images[i]) for i in range(3)]), 
+        np.array([getDistributionProjections(measuring_points_uvwt[:,[i,3]], 4.0, images[i]) for i in range(3)]), 
         axis=0)
     
     last_best_point = None

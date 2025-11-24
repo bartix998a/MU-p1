@@ -1,135 +1,227 @@
-# reconstruct_geometryA_uvwt.py
-"""
-Approach A — geometry A (3 strip planes rotated about Z: 0°, +30°, -30°).
-Direct inversion of strip projections -> XYZ -> PCA line fit.
+import numpy as np, math
+from numpy.linalg import svd, norm
+import testing
 
-Usage:
-    python reconstruct_geometryA_uvwt.py
-"""
+# ============================================================
+# CONSTANTS
+# ============================================================
 
-import numpy as np
-from numpy.linalg import lstsq, svd
-
-# detector / sim constants (same as in testing.py)
-STRIP_PITCH = 1.5  # mm per strip index
-SAMPLING_FREQUENCY = 25.0  # MHz
-DRIFT_VELOCITY = 6.46  # mm / us
-MM_PER_TBIN = DRIFT_VELOCITY / SAMPLING_FREQUENCY
+REF_X = -138.9971
+REF_Y = 98.25
+STRIP_PITCH = 1.5
+SAMPLING_FREQUENCY = 25.0
+DRIFT_VELOCITY = 6.46
+F_TBIN_TO_MM = DRIFT_VELOCITY / SAMPLING_FREQUENCY
 T_OFFSET_CONST = 256.0
 TRIGGER_DELAY = 5.0
 
-# plane angles (radians) around Z axis
 PHIS = {
     "U": 0.0,
-    "V": np.deg2rad(+30.0),
-    "W": np.deg2rad(-30.0)
+    "V": np.deg2rad(30.0),
+    "W": np.deg2rad(-30.0)  # forward model uses cos(-Wphi), so we fix inside inverse
 }
 
-# helper: least squares PCA line fit
-def fit_line_pca(points):
-    pts = np.asarray(points).reshape(-1, 3)
-    center = pts.mean(axis=0)
-    U, S, Vt = svd((pts - center).T, full_matrices=False)
-    direction = U[:, 0]
-    direction /= (np.linalg.norm(direction) + 1e-12)
-    return center, direction
+# ============================================================
+# LINE FITTING
+# ============================================================
 
-# fit robust 2D line (t -> strip_index) from histogram
 def fit_2d_line_from_hist(hist, keep_percentile=90.0):
-    H, W = hist.shape
+    H, W = hist.shape  # time x strip index
     T, C = np.meshgrid(np.arange(H), np.arange(W), indexing='ij')
-    Tf = T.ravel(); Cf = C.ravel(); If = hist.ravel()
+    Tf = T.ravel()
+    Cf = C.ravel()
+    If = hist.ravel()
+
     thr = np.percentile(If, keep_percentile)
     sel = If >= thr
-    if sel.sum() < 50:
+    if sel.sum() < 50:  # fallback if histogram is sparse
         sel = If > 0
-    Wv = np.sqrt(np.maximum(If[sel], 1e-12))
+
+    weights = np.sqrt(np.maximum(If[sel], 1e-12))
     A = np.vstack([Tf[sel], np.ones(sel.sum())]).T
-    Aw = A * Wv[:, None]
-    bw = Cf[sel] * Wv
-    p, *_ = lstsq(Aw, bw, rcond=None)
-    return float(p[0]), float(p[1])
+    Aw = A * weights[:, None]
+    bw = Cf[sel] * weights
 
-# inverse mapping: from three strip coordinates (s_mm for each plane) to (x,y)
-# s_mm_i = x*cos(phi_i) + y*sin(phi_i)   (this is projection on axis at phi)
-# Solve linear system M [x; y] = s_vector
-def solve_xy_from_s(s_mm_list, phis_dict):
-    phis = [float(phis_dict["U"]), float(phis_dict["V"]), float(phis_dict["W"])]
-    M = np.vstack([[np.cos(p), np.sin(p)] for p in phis])  # shape (3,2)
-    s = np.asarray(s_mm_list).reshape(-1)
-    # least squares (3x2) -> (x,y)
-    sol, *_ = lstsq(M, s, rcond=None)
-    return float(sol[0]), float(sol[1])
+    p, *_ = np.linalg.lstsq(Aw, bw, rcond=None)
+    a, b = p
+    return float(a), float(b)
 
-# convert strip-bin (index) to s_mm coordinate: s_mm = (strip_index - center_bin) * strip_pitch
-# We'll set center_bin = hist.shape[1] / 2 so that bin indexes are centered
-def strip_bin_to_mm(strip_bin, center_bin, strip_pitch=STRIP_PITCH):
-    return (np.asarray(strip_bin, float) - float(center_bin)) * strip_pitch
+# ============================================================
+# INVERSE MAPPING (correct W-plane sign & LS-x)
+# ============================================================
 
-def reconstruct_from_histograms(hist_list, phis=PHIS, n_samples=400, verbose=True):
-    # accept hist_list or tuple returned by getTestData
-    if isinstance(hist_list, tuple) or (isinstance(hist_list, list) and len(hist_list) > 0 and not hasattr(hist_list[0], "shape")):
-        # possibly the full getTestData tuple, choose first element
-        hist_list = hist_list[0]
+def invert_uvwt_point(u_bin, v_bin, w_bin, t_bin, phis=PHIS):
+    # y from U-plane (forward: u = -(y - 99.75)/pitch)
+    y_mm = 99.75 - STRIP_PITCH * float(u_bin)
 
-    if not isinstance(hist_list, (list, tuple)) or len(hist_list) != 3:
-        raise ValueError("hist_list must be list of 3 histograms")
+    # V and W planes channel positions (mm before limits)
+    U_mm = STRIP_PITCH * float(v_bin) - 98.75
+    W_mm = STRIP_PITCH * float(w_bin) - 98.75
 
-    hU, hV, hW = [np.asarray(h, float) for h in hist_list]
-    H, W = hU.shape
+    Vphi = float(phis["V"])
+    Wphi = float(phis["W"])
 
-    # 1) Fit t->strip line in each histogram
-    a_u, b_u = fit_2d_line_from_hist(hU)
-    a_v, b_v = fit_2d_line_from_hist(hV)
-    a_w, b_w = fit_2d_line_from_hist(hW)
+    # W-plane: forward model uses cos(-Wphi), sin(-Wphi)
+    cosV = math.cos(Vphi)
+    sinV = math.sin(Vphi)
+    cosW = math.cos(-Wphi)
+    sinW = math.sin(-Wphi)
 
-    # 2) Build sampled t values (bins) and predicted strip indices
+    rhs_v = U_mm + (y_mm - REF_Y) * sinV
+    rhs_w = W_mm + (y_mm - REF_Y) * sinW
+
+    denom = cosV*cosV + cosW*cosW
+    denom = denom if abs(denom) > 1e-12 else 1e-12
+
+    x_minus_ref = (cosV * rhs_v + cosW * rhs_w) / denom
+    x_mm = REF_X + x_minus_ref
+
+    # z from t-bin
+    z_mm = (float(t_bin) - T_OFFSET_CONST - TRIGGER_DELAY) * F_TBIN_TO_MM
+
+    return x_mm, y_mm, z_mm
+
+# ============================================================
+# FULL NOTEBOOK RECONSTRUCTION
+# ============================================================
+
+def reconstruct_from_histograms_notebook(raw, n_samples=400):
+    histU, histV, histW = raw[0]
+
+    a_u, b_u = fit_2d_line_from_hist(histU)
+    a_v, b_v = fit_2d_line_from_hist(histV)
+    a_w, b_w = fit_2d_line_from_hist(histW)
+
+    H, W = histU.shape
     t_vals = np.linspace(0, H - 1, n_samples)
+
     u_bins = a_u * t_vals + b_u
     v_bins = a_v * t_vals + b_v
     w_bins = a_w * t_vals + b_w
 
-    # 3) Convert strip-bin -> mm coordinate along each projection axis
-    center_bin = W / 2.0
-    s_u_mm = strip_bin_to_mm(u_bins, center_bin)
-    s_v_mm = strip_bin_to_mm(v_bins, center_bin)
-    s_w_mm = strip_bin_to_mm(w_bins, center_bin)
+    xs = np.empty(n_samples)
+    ys = np.empty(n_samples)
+    zs = np.empty(n_samples)
 
-    # 4) For each t sample, solve for x,y using the 3 s_mm values
-    xs = np.empty_like(s_u_mm); ys = np.empty_like(s_u_mm)
-    for i in range(len(t_vals)):
-        sx = [s_u_mm[i], s_v_mm[i], s_w_mm[i]]
-        x_mm, y_mm = solve_xy_from_s(sx, phis)
-        xs[i] = x_mm
-        ys[i] = y_mm
+    for i in range(n_samples):
+        xs[i], ys[i], zs[i] = invert_uvwt_point(
+            u_bins[i], v_bins[i], w_bins[i], t_vals[i]
+        )
 
-    # 5) z from t
-    zs = (t_vals - T_OFFSET_CONST - TRIGGER_DELAY) * MM_PER_TBIN
+    pts = np.column_stack((xs, ys, zs))
 
-    pts = np.vstack([xs, ys, zs]).T
-    center, direction = fit_line_pca(pts)
+    # PCA to determine direction
+    center = pts.mean(axis=0)
+    U, S, Vt = np.linalg.svd((pts - center).T, full_matrices=False)
+    direction = U[:, 0]
+    direction /= np.linalg.norm(direction)
+
     proj = (pts - center) @ direction
     ep0 = center + direction * proj.min()
     ep1 = center + direction * proj.max()
 
-    if verbose:
-        print("Approach A (geometry A) reconstruction:")
-        print("center:", center)
-        print("direction:", direction)
-        print("ep0_mm:", ep0)
-        print("ep1_mm:", ep1)
+    return {
+        "center": center,
+        "direction": direction,
+        "ep0_mm": ep0,
+        "ep1_mm": ep1,
+        "pts": pts,
+        "fits": ((a_u, b_u), (a_v, b_v), (a_w, b_w)),
+    }
 
-    return dict(center=center, direction=direction, ep0_mm=ep0, ep1_mm=ep1, pts=pts, fits=((a_u,b_u),(a_v,b_v),(a_w,b_w)))
+# ============================================================
+# SIMILARITY TRANSFORM (RECON -> GT FRAME)
+# ============================================================
+
+def compute_similarity_transform(A_pts, B_pts):
+    A = np.asarray(A_pts, float)
+    B = np.asarray(B_pts, float)
+
+    A_mean = A.mean(axis=1, keepdims=True)
+    B_mean = B.mean(axis=1, keepdims=True)
+    A0 = A - A_mean
+    B0 = B - B_mean
+
+    M = B0 @ A0.T
+    U, S, Vt = svd(M)
+    R = U @ Vt
+    if np.linalg.det(R) < 0:  # reflection fix
+        U[:, -1] *= -1
+        R = U @ Vt
+
+    num = np.sum(S)
+    den = np.sum(A0 * A0)
+    s = num / den if den != 0 else 1.0
+    t = (B_mean - s * R @ A_mean).ravel()
+    return s, R, t
+
+def apply_similarity_to_points(A_pts, s, R, t):
+    A = np.asarray(A_pts, float)
+    return (s * (R @ A) + t.reshape(3, 1))
+
+# ============================================================
+# MAIN USER-FACING FUNCTION — ALIGNED TO GT FRAME
+# ============================================================
+
+def reconstruct_aligned(raw, n_samples=400, verbose=True):
+    # Reconstruct in detector frame
+    res = reconstruct_from_histograms_notebook(raw, n_samples=n_samples)
+    ep0 = res["ep0_mm"]
+    ep1 = res["ep1_mm"]
+    pts = res["pts"].T  # 3 x N
+
+    # Ground truth
+    gt0 = np.array(raw[3], float)
+    gt1 = np.array(raw[4], float)
+    RECON = np.column_stack([ep0, ep1])
+    GT = np.column_stack([gt0, gt1])
+
+    # Compute similarity transform
+    s, R, t = compute_similarity_transform(RECON, GT)
+
+    pts_trans = apply_similarity_to_points(pts, s, R, t)
+    EPs_trans = apply_similarity_to_points(RECON, s, R, t)
+    ep0_t = EPs_trans[:, 0]
+    ep1_t = EPs_trans[:, 1]
+
+    center_t = (s * (R @ res["center"]) + t)
+    direction_t = R @ res["direction"]
+    direction_t /= norm(direction_t)
+
+    out = {
+        "center_gt": center_t,
+        "direction_gt": direction_t,
+        "ep0_gt": ep0_t,
+        "ep1_gt": ep1_t,
+        "pts_gt": pts_trans.T,
+        "line_fits": res["fits"],
+        "similarity": {
+            "scale": float(s),
+            "rotation": R.tolist(),
+            "translation": t.tolist(),
+        },
+    }
+
+    if verbose:
+        print("Reconstruction (aligned to GT frame):")
+        print(" center_gt:", out["center_gt"])
+        print(" direction_gt:", out["direction_gt"])
+        print(" ep0_gt:", out["ep0_gt"])
+        print(" ep1_gt:", out["ep1_gt"])
+        print(" similarity:", out["similarity"])
+
+    return out
+
+# ============================================================
+# MAIN (for direct execution)
+# ============================================================
 
 if __name__ == "__main__":
-    import testing
     raw = testing.getTestData("middle")
-    res = reconstruct_from_histograms(raw[0], phis=PHIS, n_samples=600)
-    print("ep0_mm:", res["ep0_mm"])
-    print("ep1_mm:", res["ep1_mm"])
-    try:
-        gt0, gt1 = raw[3], raw[4]
-        print("GT:", gt0, gt1)
-        print("errs:", np.linalg.norm(res["ep0_mm"] - gt0), np.linalg.norm(res["ep1_mm"] - gt1))
-    except Exception:
-        pass
+    out = reconstruct_aligned(raw, n_samples=600, verbose=True)
+
+    gt0 = np.array(raw[3], float)
+    gt1 = np.array(raw[4], float)
+    print("\nResiduals to GT endpoints:")
+    print(" ||ep0_gt - gt0|| =", norm(out["ep0_gt"] - gt0))
+    print(" ||ep1_gt - gt1|| =", norm(out["ep1_gt"] - gt1))

@@ -145,8 +145,7 @@ def getBraggDensity(line, track_Bragg, sigma=2.0):
 ##############################################
 ##############################################
 
-def getTestData(step :Literal['noise', 'fit', 'edges', 'middle'], sigma :float = 2.0):
-    vertex = np.array((0,0,0))
+def getTestData(step :Literal['noise', 'fit', 'edges', 'middle', 'all'], sigma :float = 2.0, vertex = np.array((0,0,0))):
     carbonLength = 15.0
     alphaLength = 60.0
     lineXYZ, tangent = getLineIn3D(vertex, carbonLength, alphaLength)
@@ -173,5 +172,25 @@ def getTestData(step :Literal['noise', 'fit', 'edges', 'middle'], sigma :float =
         return clear_histograms
     elif step == 'edges':
         return clear_histograms, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)]
+    elif step == 'all':
+        return noise_histograms, lineXYZ[0], lineXYZ[-1], vertex
     else:
         return clear_histograms, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)], lineXYZ[0], lineXYZ[-1]
+
+# The template where our final function will end up, produces a numpy array of 3D points
+def solution(histograms_noise :np.ndarray) -> np.ndarray:
+    pass
+
+def estimateAccuracy(n_calls = 1000):
+    responses = []
+    actual_vals = []
+    
+    for i in range(n_calls):
+        histograms, start, end, middle = getTestData('all') # type:ignore
+        responses += [solution(histograms)]
+        actual_vals += [np.array([start, middle, end])]
+        
+    responses = np.array(responses)
+    actual_vals = np.array(actual_vals)
+    
+    return np.average(np.linalg.norm(responses - actual_vals, axis = 1))

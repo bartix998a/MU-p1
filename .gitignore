@@ -2,3 +2,4 @@
 build/*
 .vscode/*
 MU_p1.egg-info/*
+__pycache__

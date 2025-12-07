@@ -45,7 +45,7 @@ def getDensity(points, histograms):
         result += [np.array([histograms[point[3]][point[i]][i] for i in range(3)])]
     return np.array([np.sum(res) / 3 for res in result])
 
-def estimateMiddle(images, tanget, vertex, start, end):
+def estimateMiddle(images, start, end):
     direction_vector = (end - start) / vLength(end - start) # vector going alongside the line of length one mm
     direction_vector = direction_vector / 4 # now we have 0.25 mm which is the resolution of our distributions
     
@@ -73,4 +73,3 @@ def estimateMiddle(images, tanget, vertex, start, end):
             last_best_score = score
     
     return last_best_point
-estimateMiddle(*getTestData('middle'))

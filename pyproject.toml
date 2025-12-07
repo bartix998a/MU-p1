@@ -11,5 +11,8 @@ requires-python = ">=3.9"
 dependencies = [
     "numpy",
     "scipy",
+    "scikit-image",
+    "opencv-python",
+    "PyWavelets",
     "matplotlib"
 ]

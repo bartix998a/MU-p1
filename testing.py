@@ -167,13 +167,13 @@ def getTestData(step :Literal['noise', 'fit', 'edges', 'middle', 'all'], sigma :
         , axis = 0)
     
     if step == 'noise':
-        return noise_histograms
+        return noise_histograms, clear_histograms
     elif step == 'fit':
-        return clear_histograms
+        return clear_histograms, lineXYZ[0], lineXYZ[-1]
     elif step == 'edges':
         return clear_histograms, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)]
     elif step == 'all':
         return noise_histograms, lineXYZ[0], lineXYZ[-1], vertex
     else:
-        return clear_histograms, tangent, lineXYZ[random.randint(0, lineXYZ.shape[0] - 1)], lineXYZ[0], lineXYZ[-1]
+        return (clear_histograms, lineXYZ[0], lineXYZ[-1]), vertex
 

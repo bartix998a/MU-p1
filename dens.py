@@ -56,7 +56,7 @@ def estimateMiddle(images, start, end):
         point += direction_vector
     measuring_points = np.array(measuring_points)
     measuring_points_uvwt = getXYZtoUVWT(measuring_points)
-    
+ 
     distribution = np.average(
         np.array([getDistributionProjections(measuring_points_uvwt[:,[i,3]], 4.0, images[i]) for i in range(3)]), 
         axis=0)
@@ -65,7 +65,7 @@ def estimateMiddle(images, start, end):
     last_best_score = np.inf
     for point in measuring_points:
         bragg = getBraggForTrack(np.array([start, point, end]), (end + start) / 2)[2]
-        bragg = bragg[bragg[:,0] <= 75.0]
+        bragg = bragg[bragg[:,0] <= vLength(end - start)]
         score = vLength(distribution - bragg[:,1])
         
         if score < last_best_score:

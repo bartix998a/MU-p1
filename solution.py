@@ -28,7 +28,7 @@ def estimateAccuracy(n_calls = 100, where :Literal['noise', 'fit', 'edges', 'mid
             start, end = points["ep0_mm"], points["ep1_mm"]
             print(np.linalg.norm(end -  start))
             
-            results += [np.linalg.norm(start - start_gt), np.linalg.norm(end - end_gt)]
+            results += [min([np.linalg.norm(start - gt)] for gt in [start_gt, end_gt]), min([np.linalg.norm(end - gt)] for gt in [start_gt, end_gt])]
         elif where == 'middle':
             data, vertex = getTestData('middle') #type: ignore
             results += [np.linalg.norm(vertex, estimateMiddle(*data))]
@@ -43,4 +43,4 @@ def estimateAccuracy(n_calls = 100, where :Literal['noise', 'fit', 'edges', 'mid
     
     return np.average(np.array(results))
 
-print(estimateAccuracy(where='noise'))
+print(estimateAccuracy(where='fit'))

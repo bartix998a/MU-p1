@@ -10,10 +10,9 @@ from scipy import ndimage
 # Utility metrics
 # -------------------------------------------
 def compute_metrics(original, denoised):
-    psnr = peak_signal_noise_ratio(original, denoised, data_range=original.max() - original.min())
     ssim = structural_similarity(original, denoised)
     snr = 10 * np.log10(np.sum(original**2) / np.sum((original - denoised)**2 + 1e-9))
-    return {"PSNR": psnr, "SSIM": ssim, "SNR": snr}
+    return {"SSIM": ssim, "SNR": snr}
 
 
 # -------------------------------------------

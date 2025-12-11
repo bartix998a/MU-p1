@@ -121,4 +121,28 @@ def compare_methods(image):
         print(f"[{m}]  PSNR={metrics['PSNR']:.3f}  SSIM={metrics['SSIM']:.3f}  SNR={metrics['SNR']:.3f}")
 
     return results
+    
+import numpy as np
+from scipy.stats import pearsonr
+
+def centroid(hist):
+    indices = np.arange(len(hist))
+    return np.sum(indices * hist) / np.sum(hist)
+
+def peak_error(clean_hist, true_proj):
+    t_est = np.argmax(clean_hist)
+    t_gt = np.argmax(true_proj)
+    return abs(t_est - t_gt)
+
+def centroid_error(clean_hist, true_proj):
+    return abs(centroid(clean_hist) - centroid(true_proj))
+
+def shape_correlation(clean_hist, true_proj):
+    corr, _ = pearsonr(clean_hist, true_proj)
+    return corr
+
+def reconstruction_improvement(raw_err, clean_err):
+    return raw_err - clean_err
+
+
 

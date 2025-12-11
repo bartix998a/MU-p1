@@ -24,10 +24,8 @@ def estimateAccuracy(n_calls = 100, where :Literal['noise', 'fit', 'edges', 'mid
             results += [np.linalg.matrix_norm(hist[0] - hist[1]) for hist in zip(histograms, clear_histograms)]
         elif where == 'fit':
             hist, start_gt, end_gt = getTestData('fit') #type: ignore
-            points = reconstruct_from_histograms_notebook((hist, None, None, None, None))
+            points = reconstruct_from_histograms_notebook(((hist, start_gt, end_gt), None, None, None, None))
             start, end = points["ep0_mm"], points["ep1_mm"]
-            print(np.linalg.norm(end -  start))
-            
             results += [min([np.linalg.norm(start - gt)] for gt in [start_gt, end_gt]), min([np.linalg.norm(end - gt)] for gt in [start_gt, end_gt])]
         elif where == 'middle':
             data, vertex = getTestData('middle') #type: ignore

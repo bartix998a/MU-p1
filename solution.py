@@ -29,60 +29,9 @@ def solution(images :list[np.ndarray],
 
 
 
-
-
-def test_noise_accuracy(n_tests=100, bins=256, denoiser=None):
-   
-
-    results = []
-
-    for _ in range(n_tests):
-
-        x0, y0, x1, y1, Hx_raw, Hy_raw = getTestData(bins=bins)
-
-        # -------- 2. Compute ground-truth projections (already in file) ---
-        true_proj_x, true_proj_y = ground_truth_projection(x0, y0, x1, y1, bins)
-
-        # -------- 3. Apply denoising -------------------------------------
-        if denoiser is not None:
-            Hx_clean = denoiser(Hx_raw)
-            Hy_clean = denoiser(Hy_raw)
-        else:
-            Hx_clean = Hx_raw
-            Hy_clean = Hy_raw
-
-        # -------- 4. Compute metrics -------------------------------------
-        peak_x = peak_error(Hx_clean, true_proj_x)
-        peak_y = peak_error(Hy_clean, true_proj_y)
-
-        centroid_x = centroid_error(Hx_clean, true_proj_x)
-        centroid_y = centroid_error(Hy_clean, true_proj_y)
-
-        corr_x = shape_correlation(Hx_clean, true_proj_x)
-        corr_y = shape_correlation(Hy_clean, true_proj_y)
-
-        # Reconstruction improvement:
-        raw_err = centroid_error(Hx_raw, true_proj_x) + centroid_error(Hy_raw, true_proj_y)
-        clean_err = centroid_x + centroid_y
-        delta = reconstruction_improvement(raw_err, clean_err)
-
-        results.append({
-            "peak_x": peak_x,
-            "peak_y": peak_y,
-            "centroid_x": centroid_x,
-            "centroid_y": centroid_y,
-            "corr_x": corr_x,
-            "corr_y": corr_y,
-            "delta_error": delta
-        })
-
-    return results
-
-
-
-
 def estimateAccuracy(n_calls = 100,
-                     where :Literal['noise', 'fit', 'edges', 'middle', 'all'] = 'all'):
+                     where :Literal['noise', 'fit', 'global_fit', 'middle', 'all'] = 'all',
+                     noise_removal_error = peak_error):
 
     responses = []
     actual_vals = []
@@ -92,7 +41,7 @@ def estimateAccuracy(n_calls = 100,
         if where == 'noise':
             histograms, clear_histograms = getTestData('noise')
             histograms = np.array([[denoise(image, 'gaussian') for image in histograms]])
-            results += [np.linalg.matrix_norm(hist[0] - hist[1]) for hist in zip(histograms, clear_histograms)]
+            results += [noise_removal_error(hist[0], hist[1]) for hist in zip(histograms, clear_histograms)]
 
         elif where == 'fit':
             hist, start_gt, end_gt = getTestData('fit')

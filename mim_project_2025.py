@@ -301,16 +301,25 @@ results_WT = compare_methods(image_WT)
 """ 
 Noise accuracy
 """
-from testing import test_noise_accuracy
-from noise_removal import gaussian_filter_smoothing  # or whatever function name you use
 
-results = test_noise_accuracy(
-    n_tests=200,
+fig, axes = plotUVWT(lineUVWT, density=density, zoom=True)
+u_hist = axes[0].images[0].get_array()
+v_hist = axes[1].images[0].get_array()
+w_hist = axes[2].images[0].get_array()
+
+uwvt = [u_hist, v_hist, w_hist]
+gt_endpoints = (lineXYZ[0], lineXYZ[-1])
+
+from testing import test_noise_accuracy
+from noise_removal import gaussian_filter_smoothing
+
+metrics = test_noise_accuracy(
+    uwvt=uwvt,
+    gt_endpoints=gt_endpoints,
     denoiser=gaussian_filter_smoothing
 )
 
-results[:5]   # show first 5 results
-
+print(metrics)
 
 ##########################################################################
 ##########################################################################

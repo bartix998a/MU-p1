@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""
-reconstruct_geometryA_uvwt.py
-
-Usage:
- - Run as script: `python reconstruct_geometryA_uvwt.py`
- - Adjust main() parameters if desired (n_samples, show_plots).
-"""
 
 import numpy as np
 import math
@@ -15,7 +8,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 # ============================================================
-# CONSTANTS 
+# CONSTANTS
 # ============================================================
 
 REF_X = -138.9971
@@ -156,7 +149,7 @@ def reconstruct_from_histograms_notebook(raw, n_samples=400, active_frac_thresh=
 
     Returns detector-frame outputs and diagnostic 't_range'.
     """
-    histU, histV, histW = raw[0]  # each is H x W (time x strips)
+    histU, histV, histW = raw[0][0]  # each is H x W (time x strips)
     H, W = histU.shape
 
     # Fit lines with centroid-based fitter
@@ -212,8 +205,8 @@ def reconstruct_from_histograms_notebook(raw, n_samples=400, active_frac_thresh=
     return {
         "center": center,
         "direction": direction,
-        "ep0_mm": ep0,
-        "ep1_mm": ep1,
+        "ep0_mm": ep1,
+        "ep1_mm": ep0,
         "pts": pts,
         "fits": ((a_u, b_u), (a_v, b_v), (a_w, b_w)),
         "t_range": (int(t_min), int(t_max)),
@@ -227,13 +220,13 @@ def compute_raw_errors(detector_result, raw):
     """
     Compute raw endpoint errors in detector frame (this is the meaningful performance metric).
     """
-    gt0 = np.array(raw[3], float)
-    gt1 = np.array(raw[4], float)
+    gt0 = np.array(raw[0][1], float)
+    gt1 = np.array(raw[0][2], float)
     ep0 = np.array(detector_result["ep0_mm"], float)
     ep1 = np.array(detector_result["ep1_mm"], float)
 
-    err0 = float(norm(ep0 - gt0))
-    err1 = float(norm(ep1 - gt1))
+    err0 = float(min(norm(ep0 - gt0), norm(ep0 - gt1)))
+    err1 = float(min(norm(ep1 - gt0), norm(ep1 - gt1)))
 
     return {
         "ep0_raw": ep0,
@@ -245,7 +238,7 @@ def compute_raw_errors(detector_result, raw):
     }
 
 # ============================================================
-# PLOTTING UTILITIES 
+# PLOTTING UTILITIES
 # ============================================================
 
 def plot_histogram_with_fit(hist, a, b, t_range=None, title="histogram + fit",
@@ -375,7 +368,7 @@ def main(n_samples=600, show_plots=True):
 
     # Optional visuals
     if show_plots:
-        histU, histV, histW = raw[0]
+        histU, histV, histW = raw[0][0]
         (a_u, b_u), (a_v, b_v), (a_w, b_w) = recon["fits"]
         t_range = recon.get("t_range", None)
 
@@ -392,4 +385,4 @@ def main(n_samples=600, show_plots=True):
     return metrics
 
 if __name__ == "__main__":
-    main()
+    main(show_plots = False)

@@ -30,7 +30,7 @@ def estimateAccuracy(n_calls = 2000, where :Literal['noise', 'fit', 'edges', 'mi
             start, end = points["ep0_mm"], points["ep1_mm"]
             results += [min([np.linalg.norm(start - gt)] for gt in [start_gt, end_gt]), min([np.linalg.norm(end - gt)] for gt in [start_gt, end_gt])]
         elif where == 'middle':
-            data, vertex = getTestData('middle') #type: ignore
+            data, vertex = getTestData('middle', vertex=vertex) #type: ignore
             results += [np.linalg.norm(vertex - estimateMiddle(*data))]
         else:
             histograms, start, end, middle = getTestData('all') # type:ignore

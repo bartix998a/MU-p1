@@ -43,7 +43,6 @@ def estimateAccuracy(n_calls = 100,
             ]
         elif where == 'global_fit':
             hist, start_gt, end_gt = getTestData('fit')
-            hist, start_gt, end_gt = getTestData('fit')
             start, end, _ = solution(hist, denoising='gaussian')
 
             results += [

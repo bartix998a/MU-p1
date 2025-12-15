@@ -298,6 +298,19 @@ results_UT = compare_methods(image_UT)
 results_VW = compare_methods(image_VW)
 results_WT = compare_methods(image_WT)
 """
+""" 
+Noise accuracy
+"""
+from testing import test_noise_accuracy
+from noise_removal import gaussian_filter_smoothing  # or whatever function name you use
+
+results = test_noise_accuracy(
+    n_tests=200,
+    denoiser=gaussian_filter_smoothing
+)
+
+results[:5]   # show first 5 results
+
 
 ##########################################################################
 ##########################################################################

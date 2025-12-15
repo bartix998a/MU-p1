@@ -35,7 +35,7 @@ def getDistributionProjections(points, epsilon, histogram):
     for point in points:
         histogram_coord_p, vals_p = getProjections(histogram_coord[:,::-1], vals, point, direction_perp, epsilon)
         
-        distribution += [np.average(vals_p, weights = 1 / (np.linalg.norm(histogram_coord_p - point, axis=1) + 1), axis=0) if vals_p.shape[0] != 0 else 0.0]
+        distribution += [np.average(vals_p, axis=0) if vals_p.shape[0] != 0 else 0.0]
     
     return np.array(distribution)
 
@@ -45,7 +45,7 @@ def getDensity(points, histograms):
         result += [np.array([histograms[point[3]][point[i]][i] for i in range(3)])]
     return np.array([np.sum(res) / 3 for res in result])
 
-def estimateMiddle(images, start, end):
+def get_final_distribution(images, start, end):
     direction_vector = (end - start) / vLength(end - start) # vector going alongside the line of length one mm
     direction_vector = direction_vector / 4 # now we have 0.25 mm which is the resolution of our distributions
     
@@ -57,19 +57,30 @@ def estimateMiddle(images, start, end):
     measuring_points = np.array(measuring_points)
     measuring_points_uvwt = getXYZtoUVWT(measuring_points)
  
+    best_line = np.argmax(np.array(vLength(measuring_points_uvwt[0,[i,3]] - measuring_points_uvwt[-1,[i,3]]) for i in range(3)))
+    
     distribution = np.average(
         np.array([getDistributionProjections(measuring_points_uvwt[:,[i,3]], 4.0, images[i]) for i in range(3)]), 
         axis=0)
+    return distribution, measuring_points
+
+
+def estimateMiddle(images, start, end):
+    distribution, measuring_points = get_final_distribution(images, start, end)
     
-    last_best_point = None
-    last_best_score = np.inf
-    for point in measuring_points:
-        bragg = getBraggForTrack(np.array([start, point, end]), (end + start) / 2)[2]
-        bragg = bragg[bragg[:,0] <= vLength(end - start)]
-        score = vLength(distribution - bragg[:,1])
-        
-        if score < last_best_score:
-            last_best_point = point
-            last_best_score = score
+    if distribution[0:distribution.shape[0] // 2].max() < distribution[distribution.shape[0] // 2:].max():
+        start, end = end, start
+
     
-    return last_best_point
+    peak_carbon_idx = np.argmax(distribution[0:distribution.shape[0] // 2])
+    peak_alpha_idx = np.argmax(distribution[distribution.shape[0] // 2:]) + (distribution.shape[0] // 2)
+    local_minimum_idx = np.argmin(distribution[peak_carbon_idx:peak_alpha_idx]) + peak_carbon_idx
+    
+    avg = (distribution[peak_carbon_idx] + distribution[local_minimum_idx]) / 2
+    
+    for i in range(peak_carbon_idx, local_minimum_idx):
+        if avg > distribution[i]:
+            return (measuring_points[i] + measuring_points[i - 1]) / 2
+    
+
+# print(estimateMiddle(*getTestData('fit', sigma = 2.0)))

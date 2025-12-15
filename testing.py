@@ -16,7 +16,12 @@ from typing import Literal
 import random
 import matplotlib.pyplot as plt
 
-import os
+from noise_removal import (
+    peak_error,
+    centroid_error,
+    shape_correlation,
+    reconstruction_improvement
+)
 
 
 def ground_truth_projection(x0, y0, x1, y1, bins):
@@ -191,12 +196,6 @@ def getTestData(step :Literal['noise', 'fit', 'edges', 'middle', 'all'], sigma :
 
 
 
-from noise_removal import (
-    peak_error,
-    centroid_error,
-    shape_correlation,
-    reconstruction_improvement
-)
 
 def test_noise_accuracy(n_tests=100, bins=256, denoiser=None):
    

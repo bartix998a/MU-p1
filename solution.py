@@ -12,10 +12,12 @@ def solution(images :list[np.ndarray], denoising :Literal["threshold", "gaussian
     middle = estimateMiddle(images_denoised, start, end)
     return start, end, middle
 
-def estimateAccuracy(n_calls = 100, where :Literal['noise', 'fit', 'edges', 'middle', 'all'] = 'all'):
+def estimateAccuracy(n_calls = 2000, where :Literal['noise', 'fit', 'edges', 'middle', 'all'] = 'all'):
     responses = []
     actual_vals = []
     results = []
+    
+    vertex = np.random.default_rng().random(3) 
     
     for i in range(n_calls):
         if where == 'noise':
@@ -29,7 +31,7 @@ def estimateAccuracy(n_calls = 100, where :Literal['noise', 'fit', 'edges', 'mid
             results += [min([np.linalg.norm(start - gt)] for gt in [start_gt, end_gt]), min([np.linalg.norm(end - gt)] for gt in [start_gt, end_gt])]
         elif where == 'middle':
             data, vertex = getTestData('middle') #type: ignore
-            results += [np.linalg.norm(vertex, estimateMiddle(*data))]
+            results += [np.linalg.norm(vertex - estimateMiddle(*data))]
         else:
             histograms, start, end, middle = getTestData('all') # type:ignore
             responses += [solution(histograms, denoising='gaussian')]
@@ -39,6 +41,6 @@ def estimateAccuracy(n_calls = 100, where :Literal['noise', 'fit', 'edges', 'mid
     responses = np.array(responses)
     actual_vals = np.array(actual_vals)
     
-    return np.average(np.array(results))
+    return np.average(np.array(results)), np.var(results), np.array(results).max()
 
-print(estimateAccuracy(where='fit'))
+print(estimateAccuracy(where='middle'))

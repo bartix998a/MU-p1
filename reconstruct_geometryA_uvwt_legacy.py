@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""
-reconstruct_geometryA_uvwt.py
-
-Usage:
- - Run as script: `python reconstruct_geometryA_uvwt.py`
- - Adjust main() parameters if desired (n_samples, show_plots).
-"""
 
 import numpy as np
 import math
@@ -15,7 +8,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 # ============================================================
-# CONSTANTS 
+# CONSTANTS
 # ============================================================
 
 REF_X = -138.9971
@@ -157,6 +150,7 @@ def reconstruct_from_histograms_notebook(raw, n_samples=400, active_frac_thresh=
     Returns detector-frame outputs and diagnostic 't_range'.
     """
     histU, histV, histW = raw[0][0]  # each is H x W (time x strips)
+    histU, histV, histW = raw[0][0]  # each is H x W (time x strips)
     H, W = histU.shape
 
     # Fit lines with centroid-based fitter
@@ -245,7 +239,7 @@ def compute_raw_errors(detector_result, raw):
     }
 
 # ============================================================
-# PLOTTING UTILITIES 
+# PLOTTING UTILITIES
 # ============================================================
 
 def plot_histogram_with_fit(hist, a, b, t_range=None, title="histogram + fit",
@@ -392,4 +386,8 @@ def main(n_samples=600, show_plots=True):
     return metrics
 
 if __name__ == "__main__":
+<<<<<<< HEAD:reconstruct_geometryA_uvwt.py
     main(show_plots = False)
+=======
+    main(show_plots = False)
+>>>>>>> reconstruct:reconstruct_geometryA_uvwt_legacy.py

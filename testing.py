@@ -195,21 +195,18 @@ from reconstruction import reconstruct_line
 from denoising import denoise_uwvt
 from metrics import endpoint_error
 
+def test_noise_accuracy(uwvt, gt_endpoints, denoiser):
+  
 
-def test_noise_removal_accuracy(uwvt, gt_line):
+    # --- raw reconstruction ---
+    line_raw = reconstruct_line(uwvt)
+    err_raw = endpoint_error(line_raw, gt_endpoints)
 
-    # 1. Denoise
-    uwvt_clean = denoise_uwvt(uwvt)
-
-    # 2. Reconstruct from raw and clean
-    line_raw   = reconstruct_line(uwvt)
+    # --- denoised reconstruction ---
+    uwvt_clean = denoiser(uwvt)
     line_clean = reconstruct_line(uwvt_clean)
+    err_clean = endpoint_error(line_clean, gt_endpoints)
 
-    # 3. Compute reconstruction errors
-    err_raw   = endpoint_error(line_raw, gt_line)
-    err_clean = endpoint_error(line_clean, gt_line)
-
-    # 4. Report improvement
     return {
         "raw_error": err_raw,
         "clean_error": err_clean,

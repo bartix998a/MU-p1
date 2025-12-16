@@ -6,6 +6,14 @@ from reconstruct_line import reconstruct_line
 from dens import estimateMiddle
 from testing import getTestData
 
+from noise_removal import (
+    peak_error,
+    centroid_error,
+    shape_correlation,
+    reconstruction_improvement
+)
+
+
 def solution(images :list[np.ndarray],
              denoising :Literal["threshold", "gaussian", "median", "morphological", "wavelet", "fft"]):
 
@@ -20,8 +28,10 @@ def solution(images :list[np.ndarray],
     return start, end, middle
 
 
+
 def estimateAccuracy(n_calls = 100,
-                     where :Literal['noise', 'fit', 'edges', 'middle', 'all'] = 'all'):
+                     where :Literal['noise', 'fit', 'global_fit', 'all', 'middle', 'all'] = 'all',
+                     noise_removal_error = peak_error):
 
     responses = []
     actual_vals = []
@@ -31,7 +41,7 @@ def estimateAccuracy(n_calls = 100,
         if where == 'noise':
             histograms, clear_histograms = getTestData('noise')
             histograms = np.array([[denoise(image, 'gaussian') for image in histograms]])
-            results += [np.linalg.matrix_norm(hist[0] - hist[1]) for hist in zip(histograms, clear_histograms)]
+            results += [noise_removal_error(hist[0], hist[1]) for hist in zip(histograms, clear_histograms)]
 
         elif where == 'fit':
             hist, start_gt, end_gt = getTestData('fit')
@@ -42,6 +52,14 @@ def estimateAccuracy(n_calls = 100,
                 min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
             ]
         elif where == 'global_fit':
+            hist, start_gt, end_gt = getTestData('fit')
+            points = reconstruct_from_histograms_notebook(((hist, start_gt, end_gt), None, None, None, None))
+            start, end = points["ep0_mm"], points["ep1_mm"]
+            results += [
+                min(np.linalg.norm(start - gt) for gt in [start_gt, end_gt]),
+                min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
+            ]
+        elif where == 'all':
             hist, start_gt, end_gt = getTestData('fit')
             start, end, _ = solution(hist, denoising='gaussian')
 

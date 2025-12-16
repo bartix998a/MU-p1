@@ -18,12 +18,6 @@ import matplotlib.pyplot as plt
 
 
 
-def ground_truth_projection(x0, y0, x1, y1, bins):
-    x_vals = np.linspace(min(x0, x1), max(x0, x1), bins)
-    y_vals = np.linspace(min(y0, y1), max(y0, y1), bins)
-    proj_x = np.histogram(x_vals, bins=bins, range=(0, bins))[0]
-    proj_y = np.histogram(y_vals, bins=bins, range=(0, bins))[0]
-    return proj_x, proj_y
 
 # @title
 projectionPhis = {

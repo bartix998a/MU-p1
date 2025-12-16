@@ -30,7 +30,7 @@ def solution(images :list[np.ndarray],
 
 
 def estimateAccuracy(n_calls = 100,
-                     where :Literal['noise', 'fit', 'global_fit', 'middle', 'all'] = 'all',
+                     where :Literal['noise', 'fit', 'global_fit', 'all', 'middle', 'all'] = 'all',
                      noise_removal_error = peak_error):
 
     responses = []
@@ -52,6 +52,14 @@ def estimateAccuracy(n_calls = 100,
                 min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
             ]
         elif where == 'global_fit':
+            hist, start_gt, end_gt = getTestData('fit')
+            points = reconstruct_from_histograms_notebook(((hist, start_gt, end_gt), None, None, None, None))
+            start, end = points["ep0_mm"], points["ep1_mm"]
+            results += [
+                min(np.linalg.norm(start - gt) for gt in [start_gt, end_gt]),
+                min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
+            ]
+        elif where == 'all':
             hist, start_gt, end_gt = getTestData('fit')
             start, end, _ = solution(hist, denoising='gaussian')
 

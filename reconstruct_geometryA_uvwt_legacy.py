@@ -386,8 +386,5 @@ def main(n_samples=600, show_plots=True):
     return metrics
 
 if __name__ == "__main__":
-<<<<<<< HEAD:reconstruct_geometryA_uvwt.py
     main(show_plots = False)
-=======
-    main(show_plots = False)
->>>>>>> reconstruct:reconstruct_geometryA_uvwt_legacy.py
+

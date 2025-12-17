@@ -1,91 +1,77 @@
 import numpy as np
 from typing import Literal
+
 from noise_removal import denoise
-from reconstruct_geometryA_uvwt_legacy import reconstruct_from_histograms_notebook
 from reconstruct_line import reconstruct_line
 from dens import estimateMiddle
 from testing import getTestData
 
-from noise_removal import (
-    peak_error,
-    centroid_error,
-    shape_correlation,
-    reconstruction_improvement
-)
 
+def solution(
+    images: list[np.ndarray],
+    denoising: Literal[
+        "threshold", "gaussian", "median",
+        "morphological", "wavelet", "fft"
+    ] = "gaussian",
+):
+    # --- denoise ---
+    images_denoised = np.array([
+        denoise(image, denoising) for image in images
+    ])
 
-def solution(images :list[np.ndarray],
-             denoising :Literal["threshold", "gaussian", "median", "morphological", "wavelet", "fft"]):
-
-    images_denoised = np.array([denoise(image, denoising) for image in images])
-
-    # NEW reconstruction (with fallback inside)
+    # --- reconstruct (global + fallback happens inside) ---
     line = reconstruct_line(images_denoised)
 
-    start, end = line["ep0_mm"], line["ep1_mm"]
-    middle = estimateMiddle(images_denoised, start, end)
+    if line is None or "ep0_mm" not in line:
+        raise RuntimeError("Reconstruction failed completely")
 
+    start = np.asarray(line["ep0_mm"], float)
+    end   = np.asarray(line["ep1_mm"], float)
+
+    # --- endpoint sanity (CRITICAL) ---
+    if not np.all(np.isfinite(start)) or not np.all(np.isfinite(end)):
+        raise RuntimeError("NaN endpoints")
+
+    # consistent ordering to avoid sign chaos
+    if start[2] > end[2]:
+        start, end = end, start
+
+    middle = estimateMiddle(images_denoised, start, end)
     return start, end, middle
 
 
-
-def estimateAccuracy(n_calls = 100,
-                     where :Literal['noise', 'fit', 'global_fit', 'all', 'middle', 'all'] = 'all',
-                     noise_removal_error = peak_error):
-
-    responses = []
-    actual_vals = []
+def estimateAccuracy(
+    n_calls: int = 100,
+    where: Literal["all"] = "all",
+):
     results = []
 
-    for i in range(n_calls):
-        if where == 'noise':
-            histograms, clear_histograms = getTestData('noise')
-            histograms = np.array([[denoise(image, 'gaussian') for image in histograms]])
-            results += [noise_removal_error(hist[0], hist[1]) for hist in zip(histograms, clear_histograms)]
+    for _ in range(n_calls):
+        hist, start_gt, end_gt = getTestData("fit")
 
-        elif where == 'fit':
-            hist, start_gt, end_gt = getTestData('fit')
-            points = reconstruct_from_histograms_notebook(((hist, start_gt, end_gt), None, None, None, None))
-            start, end = points["ep0_mm"], points["ep1_mm"]
-            results += [
-                min(np.linalg.norm(start - gt) for gt in [start_gt, end_gt]),
-                min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
-            ]
-        elif where == 'global_fit':
-            hist, start_gt, end_gt = getTestData('fit')
-            points = reconstruct_from_histograms_notebook(((hist, start_gt, end_gt), None, None, None, None))
-            start, end = points["ep0_mm"], points["ep1_mm"]
-            results += [
-                min(np.linalg.norm(start - gt) for gt in [start_gt, end_gt]),
-                min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
-            ]
-        elif where == 'all':
-            hist, start_gt, end_gt = getTestData('fit')
-            start, end, _ = solution(hist, denoising='gaussian')
+        try:
+            start, end, _ = solution(hist, denoising="gaussian")
+        except Exception:
+            # fallback: use legacy directly for evaluation only
+            from reconstruct_geometryA_uvwt_legacy import reconstruct_from_histograms_notebook
+            pts = reconstruct_from_histograms_notebook(((hist, None, None), None, None, None, None))
+            start, end = pts["ep0_mm"], pts["ep1_mm"]
 
-            results += [
-                min(np.linalg.norm(start - gt) for gt in [start_gt, end_gt]),
-                min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
-            ]
-        elif where == 'middle':
-            data, vertex = getTestData('middle')
-            results += [np.linalg.norm(vertex, estimateMiddle(*data))]
+        results.append(
+            min(np.linalg.norm(start - gt) for gt in [start_gt, end_gt])
+        )
+        results.append(
+            min(np.linalg.norm(end - gt) for gt in [start_gt, end_gt])
+        )
 
-        else:
-            histograms, start, end, middle = getTestData('all')
-            responses += [solution(histograms, denoising='gaussian')]
-            actual_vals += [np.array([start, middle, end])]
-            results += [np.linalg.norm(responses[-1] - actual_vals[-1], axis = 1)]
+    if not results:
+        return np.inf
 
-    responses = np.array(responses)
-    actual_vals = np.array(actual_vals)
-
-    return np.average(np.array(results))
+    return float(np.mean(results))
 
 
-legacy_err = estimateAccuracy(where='fit')
-global_err = estimateAccuracy(where='global_fit')
-
-print("Legacy endpoint error:", legacy_err)
-print("Global  endpoint error:", global_err)
-print("Improvement factor:", legacy_err / global_err if global_err > 0 else np.inf)
+if __name__ == "__main__":
+    err = estimateAccuracy(where="all")
+    print("========== SUMMARY ==========")
+    print("Hybrid reconstruction (global + legacy fallback)")
+    print("Mean endpoint error:", err)

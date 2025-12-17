@@ -27,11 +27,26 @@ def reconstruct_line(images):
     res = reconstruct_with_uncertainty(data, init)
 
     if res["status"] == "OK" and not res["flags"]:
+        d = normalize(res["params"][:3])
+        center = 0.5 * (p0 + p1)
+        half_len = 0.5 * np.linalg.norm(p1 - p0)
+        p0 = np.asarray(legacy["ep0_mm"], float)
+        p1 = np.asarray(legacy["ep1_mm"], float)
+        t0 = np.dot(p0 - center, d)
+        t1 = np.dot(p1 - center, d)
+
+        tmin, tmax = min(t0, t1), max(t0, t1)
+
+        ep0 = center + tmin * d
+        ep1 = center + tmax * d
+
+
+
         return {
             "status": "OK",
-            "ep0_mm": legacy["ep0_mm"],
-            "ep1_mm": legacy["ep1_mm"],
-            "direction": normalize(res["params"][:3]),
+            "ep0_mm": ep0,
+            "ep1_mm": ep1,
+            "direction": d,
             "uncertainty": res["endpoint_uncertainty"],
             "flags": res["flags"],
         }
